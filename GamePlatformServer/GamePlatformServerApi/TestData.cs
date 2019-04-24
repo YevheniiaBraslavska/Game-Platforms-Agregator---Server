@@ -46,7 +46,7 @@ namespace GamePlatformServerApi {
                     Verified = true
                 }
             };
-            context.SaveChanges();
+            user.Register(context);
         }
     }
 }

@@ -15,6 +15,18 @@ namespace GamePlatformServerApi.Structs {
         }
 
         public EmailStruct(EmailItem item) {
+            GetFromItem(item);
+        }
+
+        public EmailStruct(Context context, long userid) {
+            var query = (from email in context.Emails
+                         where email.UserId == userid
+                         orderby email.Time descending
+                         select email).ToList()[0];
+            GetFromItem(query);
+        }
+
+        public void GetFromItem(EmailItem item) {
             Email = item.Email;
             Verified = item.Verified;
             UserId = item.UserId;

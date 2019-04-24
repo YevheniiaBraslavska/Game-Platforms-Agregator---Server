@@ -1,6 +1,8 @@
 ﻿using GamePlatformServerApi.Models;
 using GamePlatformServerApi.Structs;
+using System;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 
 namespace GamePlatformServerApi {
@@ -59,6 +61,35 @@ namespace GamePlatformServerApi {
             return new VerificationStruct() {
                 Answer = true,
                 Message = "Password is verified."
+            };
+        }
+
+        public static VerificationStruct User(Context context, string login, string password) {
+            var savedpasswords = (from user in context.Users
+                                  where user.Login == login
+                                  join pass in context.Passwords on user.UserId equals pass.UserId
+                                  orderby pass.Time descending
+                                  select pass.Password).ToList();
+            if (savedpasswords.Count() == 0)
+                return new VerificationStruct() {
+                    Answer = false,
+                    Message = "Invalid login."
+                };
+            var savedpasswordhash = savedpasswords[0];
+            byte[] hashbytes = Convert.FromBase64String(savedpasswordhash);
+            byte[] salt = new byte[16];
+            Array.Copy(hashbytes, 0, salt, 0, 16);
+            var pbkdf2 = new Rfc2898DeriveBytes(password, salt, 10000);
+            byte[] hash = pbkdf2.GetBytes(20);
+            for (int i = 0; i < 20; i++)
+                if (hashbytes[i + 16] != hash[i])
+                    return new VerificationStruct() {
+                        Answer = false,
+                        Message = "Invalid password."
+                    };
+            return new VerificationStruct() {
+                Answer = true,
+                Message = "Password is right."
             };
         }
     }

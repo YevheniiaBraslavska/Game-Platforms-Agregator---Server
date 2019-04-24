@@ -9,6 +9,18 @@ namespace GamePlatformServerApi.Structs {
         public PasswordStruct Password;
         public EmailStruct Email;
 
+        public UserStruct() {
+        }
+
+        public UserStruct(Context context, string login) {
+            Login = login;
+            Id = (from user in context.Users
+                  where user.Login == login
+                  select user.UserId).ToList()[0];
+            Password = new PasswordStruct(context, Id);
+            Email = new EmailStruct(context, Id);
+        }
+
         public void Register(Context context) {
             Id = SaveUser(context);
             Password.UserId = Id;
@@ -17,7 +29,7 @@ namespace GamePlatformServerApi.Structs {
             Email.Save(context);
         }
 
-        public long SaveUser(Context context) {
+        private long SaveUser(Context context) {
             context.Users.Add(new UserItem {
                 Login = Login,
             });

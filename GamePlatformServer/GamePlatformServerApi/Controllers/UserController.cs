@@ -22,7 +22,7 @@ namespace GamePlatformServerApi.Controllers {
                 TestData.GetUsers(this.context);
             }
         }
-
+        
         //GET /api/user/5
         [HttpGet("{id}")]
         public async Task<ActionResult<IEnumerable<UserStruct>>> GetUserItems(long id) {
@@ -44,8 +44,14 @@ namespace GamePlatformServerApi.Controllers {
             return Verification.Login(context, login);
         }
 
-        //POST /api/user/save/[login,password,email]
-        [Route("save")]
+        //GET /api/user/check/[password]
+        [HttpGet("check/{password}")]
+        public ActionResult<VerificationStruct> CheckPassword(string password) {
+            return Verification.Password(password);
+        }
+
+        //POST /api/user/register/[login,password,email]
+        [Route("register")]
         [HttpPost]
         public ActionResult<VerificationStruct> SaveNewUser(string login, string password, string email) {
             var logincheck = Verification.Login(context, login);
@@ -115,6 +121,14 @@ namespace GamePlatformServerApi.Controllers {
                     Answer = false,
                     Message = "Code is invalid"
                 };
+        }
+
+        //POST /api/user/login/[login,password]
+        [Route("login")]
+        [HttpPost]
+        public ActionResult<VerificationStruct> Login(string login, string password) {
+            var answer = Verification.User(context, login, password);
+            return answer;
         }
     }
 }
