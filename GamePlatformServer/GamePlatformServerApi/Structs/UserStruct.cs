@@ -12,6 +12,11 @@ namespace GamePlatformServerApi.Structs {
         public UserStruct() {
         }
 
+        /// <summary>
+        /// Fetch all valid data for user's login.
+        /// </summary>
+        /// <param name="context"></param>
+        /// <param name="login"></param>
         public UserStruct(Context context, string login) {
             Login = login;
             Id = (from user in context.Users
@@ -26,7 +31,7 @@ namespace GamePlatformServerApi.Structs {
             Password.UserId = Id;
             Password.Save(context);
             Email.UserId = Id;
-            Email.Save(context);
+            Email.Save(context, DateTime.Now);
         }
 
         private long SaveUser(Context context) {
@@ -42,6 +47,14 @@ namespace GamePlatformServerApi.Structs {
         public void SaveNewPassword(Context context, PasswordStruct password) {
             Password.UserId = Id;
             Password.Save(context);
+        }
+
+        public string GetVerifCode(Context context) {
+            return (from user in context.Users
+                    where user.Login == Login
+                    join code in context.VerificationCodes on user.UserId equals code.UserId
+                    orderby code.CodeId descending
+                    select code.Code).ToList()[0];
         }
     }
 }

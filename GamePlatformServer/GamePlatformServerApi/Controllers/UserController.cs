@@ -106,16 +106,15 @@ namespace GamePlatformServerApi.Controllers {
         [Route("email/setverification")]
         [HttpPost]
         public ActionResult<VerificationStruct> SetVerifyEmail(string login, string verifcode) {
-            var dbcode = (from user in context.Users
-                          where user.Login == login
-                          join code in context.VerificationCodes on user.UserId equals code.UserId
-                          orderby code.CodeId
-                          select code.Code).ToList()[0];
-            if (dbcode.Equals(verifcode))
+            var user = new UserStruct(context, login);
+            var dbcode = user.GetVerifCode(context);
+            if (dbcode.Equals(verifcode)) {
+                user.Email.SetVerified(context);
                 return new VerificationStruct() {
                     Answer = true,
                     Message = "Code is right."
                 };
+            }
             else
                 return new VerificationStruct() {
                     Answer = false,

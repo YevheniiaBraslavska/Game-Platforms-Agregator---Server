@@ -10,6 +10,8 @@ namespace GamePlatformServerApi.Structs {
         public string Email { get; set; }
         public bool Verified { get; set; }
         public long UserId { get; set; }
+        private string post = @"gameplatformproject@gmail.com";
+        private string password = @"G1a2m3e4P5l6a7t8f9o0r1m2";
 
         public EmailStruct() {
         }
@@ -32,13 +34,13 @@ namespace GamePlatformServerApi.Structs {
             UserId = item.UserId;
         }
 
-        public bool Save(Context context) {
+        public bool Save(Context context, DateTime time) {
             if (UserId == 0)
                 return false;
             context.Emails.Add(new EmailItem() {
                 Email = Email,
                 Verified = Verified,
-                Time = DateTime.Now,
+                Time = time,
                 UserId = UserId
             });
             context.SaveChanges();
@@ -46,18 +48,19 @@ namespace GamePlatformServerApi.Structs {
         }
 
         public void Verify(Context context) {
-            var smtpClient = new SmtpClient("smtp.gmail.com", 587);
+            var smtpClient = new SmtpClient(@"smtp.gmail.com", 587);
             smtpClient.UseDefaultCredentials = false;
-            smtpClient.Credentials = new System.Net.NetworkCredential("post", "password");
+            smtpClient.Credentials = new System.Net.NetworkCredential(post, password);
             smtpClient.DeliveryMethod = SmtpDeliveryMethod.Network;
             smtpClient.EnableSsl = true;
+            smtpClient.Timeout = 10000;
 
             var mail = new MailMessage() {
-                From = new MailAddress("post", "GamePlatform")
+                From = new MailAddress(post, "GamePlatform")
             };
             mail.To.Add(new MailAddress(Email));
             var code = GenCode();
-            mail.Body = @"This is you code for email verification in GamePlatform: " + code;
+            mail.Body = "This is you code for email verification in GamePlatform: " + code;
             smtpClient.Send(mail);
             SaveCode(context, code);
         }
@@ -76,6 +79,15 @@ namespace GamePlatformServerApi.Structs {
             var max = 10000;
             return ran.Next(min, max).ToString() + "-" + ran.Next(min, max).ToString() + "-" +
                 ran.Next(min, max).ToString() + "-" + ran.Next(min, max).ToString();
+        }
+
+        public void SetVerified(Context context) {
+            var query = (from email in context.Emails
+                         where email.Email == Email && email.UserId == UserId
+                         select email).ToList()[0];
+            query.Verified = true;
+            context.Emails.Update(query);
+            context.SaveChanges();
         }
     }
 }
