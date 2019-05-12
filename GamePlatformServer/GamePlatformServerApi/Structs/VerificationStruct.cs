@@ -6,6 +6,6 @@ using System.Threading.Tasks;
 namespace GamePlatformServerApi.Structs {
     public struct VerificationStruct {
         public bool Answer;
-        public string Message;
+        public Dictionary<string,string> Message;
     }
 }

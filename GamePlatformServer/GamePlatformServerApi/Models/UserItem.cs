@@ -7,5 +7,6 @@ namespace GamePlatformServerApi.Models {
         public long UserId { get; set; }
         [StringLength(50)]
         public string Login { get; set; }
+        public bool Ban { get; set; }
     }
 }

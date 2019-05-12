@@ -10,13 +10,14 @@ namespace GamePlatformServerApi {
     public class Startup {
         public Startup(IConfiguration configuration) {
             Configuration = configuration;
+            AppConfigurations.Set(configuration);
         }
 
         public IConfiguration Configuration { get; }
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services) {
-            services.AddDbContext<Context>(opt => opt.UseSqlite("Data Source=Database.db"));
+            services.AddDbContext<Context>(opt => opt.UseSqlite(Configuration["DatabaseConnectionString"]));
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
         }
 

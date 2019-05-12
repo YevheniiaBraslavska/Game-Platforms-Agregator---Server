@@ -13,5 +13,6 @@ namespace GamePlatformServerApi.Models {
         public DbSet<PasswordItem> Passwords { get; set; }
         public DbSet<EmailItem> Emails { get; set; }
         public DbSet<VerificationCodeItem> VerificationCodes { get; set; }
+        public DbSet<EntersItem> Enters { get; set; }
     }
 }

@@ -20,13 +20,13 @@ namespace GamePlatformServerApi.Controllers {
                 "<p>Get user Login/Password for id.</p>" +
                 "<p>Example: https://localhost:1234/api/user/3</p>" +
 
-                "<h4>GET /api/user/check/[login]</h4>" +
+                "<h4>GET /api/user/check/login/[login]</h4>" +
                 "<p>Check if this login can be taken for registrarion (not exists yet).</p>" +
-                "<p>Example: https://localhst:1234/api/user/check/Ann</p>" +
+                "<p>Example: https://localhst:1234/api/user/check/login/Ann</p>" +
 
-                "<h4>GET /api/user/check/[password]</h4>" +
+                "<h4>GET /api/user/check/password/[password]</h4>" +
                 "<p>Check password for rules: only latin and numbers, small and Capital characters, numbers.</p>" +
-                "<p>Example: https://localhost:1234/api/user/check/AnnPass1</p>" +
+                "<p>Example: https://localhost:1234/api/user/check/password/AnnPass1</p>" +
 
                 "<h4>POST /api/user/register/[login,password,email]</h4>" +
                 "<p>Register new user. Note, login and password will be checked again.</p>" +

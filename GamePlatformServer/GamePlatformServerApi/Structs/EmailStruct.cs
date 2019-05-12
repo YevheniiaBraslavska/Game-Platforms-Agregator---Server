@@ -10,8 +10,8 @@ namespace GamePlatformServerApi.Structs {
         public string Email { get; set; }
         public bool Verified { get; set; }
         public long UserId { get; set; }
-        private string post = @"gameplatformproject@gmail.com";
-        private string password = @"G1a2m3e4P5l6a7t8f9o0r1m2";
+        private string post = AppConfigurations.Email;
+        private string password = AppConfigurations.Password;
 
         public EmailStruct() {
         }
@@ -48,7 +48,7 @@ namespace GamePlatformServerApi.Structs {
         }
 
         public void Verify(Context context) {
-            var smtpClient = new SmtpClient(@"smtp.gmail.com", 587);
+            var smtpClient = new SmtpClient(AppConfigurations.SMTP, AppConfigurations.SMTPPort);
             smtpClient.UseDefaultCredentials = false;
             smtpClient.Credentials = new System.Net.NetworkCredential(post, password);
             smtpClient.DeliveryMethod = SmtpDeliveryMethod.Network;

@@ -22,34 +22,52 @@ namespace GamePlatformServerApi.Controllers {
                 TestData.GetUsers(this.context);
             }
         }
-        
+
+        //------------------------------------------
+        // ... [TECH] Get user structure for user id
+        //------------------------------------------
         //GET /api/user/5
         [HttpGet("{id}")]
         public async Task<ActionResult<IEnumerable<UserStruct>>> GetUserItems(long id) {
             var query = from user in context.Users
                         where user.UserId == id
                         join password in context.Passwords on user.UserId equals password.UserId
+                        join email in context.Emails on user.UserId equals email.UserId
                         select new UserStruct {
                             Login = user.Login,
                             Password = new PasswordStruct() {
-                                Password = password.Password
+                                Password = password.Password,
+                                Temporary = password.Temporary
+                            },
+                            Email = new EmailStruct() {
+                                Email = email.Email,
+                                Verified = email.Verified
                             }
                         };
             return await query.ToListAsync();
         }
 
-        //GET /api/user/check/[login]
-        [HttpGet("check/{login}")]
+        //-------------------------------------------------
+        // ... Check if login is correct for internal rules
+        //-------------------------------------------------
+        //GET /api/user/check/login/[login]
+        [HttpGet("check/login/{login}")]
         public ActionResult<VerificationStruct> CheckLogin(string login) {
             return Verification.Login(context, login);
         }
 
-        //GET /api/user/check/[password]
-        [HttpGet("check/{password}")]
+        //----------------------------------------------------
+        // ... Check if password is correct for internal rules
+        //----------------------------------------------------
+        //GET /api/user/check/password/[password]
+        [HttpGet("check/password/{password}")]
         public ActionResult<VerificationStruct> CheckPassword(string password) {
             return Verification.Password(password);
         }
 
+        //------------------------------------------------
+        // ... Register new user with login/password/email
+        //------------------------------------------------
         //POST /api/user/register/[login,password,email]
         [Route("register")]
         [HttpPost]
@@ -74,10 +92,15 @@ namespace GamePlatformServerApi.Controllers {
             user.Register(context);
             return new VerificationStruct() {
                 Answer = true,
-                Message = "User was registered."
+                Message = new Dictionary<string, string>() {
+                    ["Message"] = "User was registered."
+                }
             };
         }
 
+        //-----------------------------------------------------------------------
+        // ... Get verification code on email, if this email was not verified yet
+        //-----------------------------------------------------------------------
         //GET /api/user/email/getverification/[login]
         [HttpGet("email/getverification/{login}")]
         public ActionResult<VerificationStruct> GetVerifyEmail(string login) {
@@ -89,7 +112,9 @@ namespace GamePlatformServerApi.Controllers {
             if (lastemail.Verified) {
                 return new VerificationStruct() {
                     Answer = false,
-                    Message = "Already verified."
+                    Message = new Dictionary<string, string>() {
+                        ["Message"] = "Already verified."
+                    }
                 };
             }
             else {
@@ -97,11 +122,16 @@ namespace GamePlatformServerApi.Controllers {
                 emailtoverif.Verify(context);
                 return new VerificationStruct() {
                     Answer = true,
-                    Message = "Code was send on email."
+                    Message = new Dictionary<string, string>() {
+                        ["Message"] = "Code was send on email."
+                    }
                 };
             }
         }
 
+        //---------------------------------------------------
+        // ... Set verification for email with temporary code
+        //---------------------------------------------------
         //POST /api/user/email/setverification/[login,verifcode]
         [Route("email/setverification")]
         [HttpPost]
@@ -112,22 +142,47 @@ namespace GamePlatformServerApi.Controllers {
                 user.Email.SetVerified(context);
                 return new VerificationStruct() {
                     Answer = true,
-                    Message = "Code is right."
+                    Message = new Dictionary<string, string>() {
+                        ["Message"] = "Code is right."
+                    }
                 };
             }
             else
                 return new VerificationStruct() {
                     Answer = false,
-                    Message = "Code is invalid"
+                    Message = new Dictionary<string, string>() {
+                        ["Message"] = "Code is invalid"
+                    }
                 };
         }
 
+        //----------------------------------------
+        // ... Enter in system with login/password
+        //----------------------------------------
         //POST /api/user/login/[login,password]
         [Route("login")]
         [HttpPost]
         public ActionResult<VerificationStruct> Login(string login, string password) {
-            var answer = Verification.User(context, login, password);
+            var user = new UserStruct() {
+                Login = login,
+                Password = new PasswordStruct() {
+                    Password = password
+                }
+            };
+            var answer = user.Enter(context);
+            if (!answer.Answer && answer.Message["Invalid"].Equals("password")) {
+                var entersleft = user.GetLeftEnters(context);
+                if (entersleft == 0) {
+                    answer.Message["Message"] = answer.Message["Message"] + " User was permanently banned.";
+                }
+                answer.Message.Add("EntersLeft", entersleft.ToString());
+                if (entersleft == 0) {
+                    user.SetBan(context);
+                }
+            }
             return answer;
         }
+
+        //POST /api/user/
     }
 }
