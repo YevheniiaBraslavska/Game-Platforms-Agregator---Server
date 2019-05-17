@@ -10,8 +10,6 @@ namespace GamePlatformServerApi.Structs {
         public string Email { get; set; }
         public bool Verified { get; set; }
         public long UserId { get; set; }
-        private string post = AppConfigurations.Email;
-        private string password = AppConfigurations.Password;
 
         public EmailStruct() {
         }
@@ -48,37 +46,10 @@ namespace GamePlatformServerApi.Structs {
         }
 
         public void Verify(Context context) {
-            var smtpClient = new SmtpClient(AppConfigurations.SMTP, AppConfigurations.SMTPPort);
-            smtpClient.UseDefaultCredentials = false;
-            smtpClient.Credentials = new System.Net.NetworkCredential(post, password);
-            smtpClient.DeliveryMethod = SmtpDeliveryMethod.Network;
-            smtpClient.EnableSsl = true;
-            smtpClient.Timeout = 10000;
-
-            var mail = new MailMessage() {
-                From = new MailAddress(post, "GamePlatform")
-            };
-            mail.To.Add(new MailAddress(Email));
-            var code = GenCode();
-            mail.Body = "This is you code for email verification in GamePlatform: " + code;
-            smtpClient.Send(mail);
-            SaveCode(context, code);
-        }
-
-        private void SaveCode(Context context, string code) {
-            context.VerificationCodes.Add(new VerificationCodeItem() {
-                UserId = UserId,
-                Code = code
-            });
-            context.SaveChanges();
-        }
-
-        private string GenCode() {
-            Random ran = new Random();
-            var min = 1000;
-            var max = 10000;
-            return ran.Next(min, max).ToString() + "-" + ran.Next(min, max).ToString() + "-" +
-                ran.Next(min, max).ToString() + "-" + ran.Next(min, max).ToString();
+            var code = new Cryptography();
+            var body = "This is you code for email verification in GamePlatform: " + code.Key;
+            Mail.Send(Email, body);
+            code.SaveToVerification(context, UserId);
         }
 
         public void SetVerified(Context context) {

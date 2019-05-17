@@ -170,19 +170,37 @@ namespace GamePlatformServerApi.Controllers {
                 }
             };
             var answer = user.Enter(context);
-            if (!answer.Answer && answer.Message["Invalid"].Equals("password")) {
-                var entersleft = user.GetLeftEnters(context);
-                if (entersleft == 0) {
+            if (!answer.Answer && answer.Message["Invalid"].Equals("Password")) {
+                var wrongenters = user.GetWrongEnters(context);
+                var permanentersleft = AppConfigurations.PermanentBanErrors - wrongenters;
+                var constentersleft = AppConfigurations.ConstantBanErrors - wrongenters;
+                if (AppConfigurations.PermanentBanErrors - wrongenters == 0) {
+                    answer.Message.Add("EntersLeft", permanentersleft.ToString());
                     answer.Message["Message"] = answer.Message["Message"] + " User was permanently banned.";
+                    user.SetBan(context, true);
+                    user.SendPermanentBanEmail(context);
                 }
-                answer.Message.Add("EntersLeft", entersleft.ToString());
-                if (entersleft == 0) {
-                    user.SetBan(context);
+                else if(constentersleft <= 0) {
+                    answer.Message.Add("EntersLeft", constentersleft.ToString());
+                    answer.Message["Message"] = answer.Message["Message"] + " Password was reset.";
+                    user.SetBan(context, true);
+                    user.SendConstantBanEmail(context);
                 }
+            }
+            if (!answer.Answer && answer.Message["Invalid"].Equals("Locked")) {
+                user.SendPermanentBanEmail(context);
             }
             return answer;
         }
 
-        //POST /api/user/
+        //--------------------------------------------------
+        // ... Set new password (only if user is not locked)
+        //--------------------------------------------------
+        //POST /api/user/password/change/[session],[new password]
+        [Route("password/change")]
+        [HttpPost]
+        public ActionResult<VerificationStruct> ChangePassword(int session, string newpassword) {
+            throw new NotImplementedException();
+        }
     }
 }

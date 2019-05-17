@@ -1,6 +1,7 @@
 ﻿using GamePlatformServerApi.Models;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 
@@ -69,11 +70,13 @@ namespace GamePlatformServerApi.Structs {
 
         public VerificationStruct Enter(Context context) {
             var userexist = UserExist(context);
+            UpdateBanStatus(context);
+
             if (!userexist) {
                 return new VerificationStruct() {
                     Answer = false,
                     Message = new Dictionary<string, string>() {
-                        ["Invalid"] = "login",
+                        ["Invalid"] = "Login",
                         ["Message"] = "Invalid login."
                     }
                 };
@@ -88,8 +91,8 @@ namespace GamePlatformServerApi.Structs {
                 return new VerificationStruct() {
                     Answer = false,
                     Message = new Dictionary<string, string>() {
-                        ["Invalid"] = "login",
-                        ["Message"] = "This login is permanently banned."
+                        ["Invalid"] = "Locked",
+                        ["Message"] = "This login is banned."
                     }
                 };
             }
@@ -107,13 +110,38 @@ namespace GamePlatformServerApi.Structs {
             }
         }
 
+        private bool UpdateBanStatus(Context context) {
+            if (Ban) {
+                var lastenter = (from enter in context.Enters
+                                 where enter.UserId == Id
+                                 orderby enter.EnterTime descending
+                                 select enter.EnterTime).ToList()[0];
+                var hours = AppConfigurations.PermanentBanTimeHours;
+                var minutes = AppConfigurations.PermanentBanTimeMinutes;
+                var seconds = AppConfigurations.PermanentBanTimeSeconds;
+                var time = DateTime.Now - lastenter > new TimeSpan(hours, minutes, seconds);
+                var temporarypass = (from password in context.Passwords
+                                    where password.UserId == Id
+                                    orderby password.Time descending
+                                    select password.Temporary).ToList()[0];
+                if (time && !temporarypass) {
+                    SetBan(context, false);
+                }
+                return Ban;
+            }
+            else
+                return Ban;
+        }
+
         private VerificationStruct VerifyPassword(Context context) {
             var savedpasswords = (from user in context.Users
                                   where user.Login == Login
                                   join pass in context.Passwords on user.UserId equals pass.UserId
                                   orderby pass.Time descending
-                                  select pass.Password).ToList();
-            var savedpasswordhash = savedpasswords[0];
+                                  select pass).ToList()[0];
+            var savedpasswordhash = savedpasswords.Password;
+
+            //Check hash password
             byte[] hashbytes = Convert.FromBase64String(savedpasswordhash);
             byte[] salt = new byte[16];
             Array.Copy(hashbytes, 0, salt, 0, 16);
@@ -124,10 +152,14 @@ namespace GamePlatformServerApi.Structs {
                     return new VerificationStruct() {
                         Answer = false,
                         Message = new Dictionary<string, string>() {
-                            ["Invalid"] = "password",
+                            ["Invalid"] = "Password",
                             ["Message"] = "Invalid password."
                         }
                     };
+
+            if (savedpasswords.Temporary) {
+                SetBan(context, false);
+            }
             return new VerificationStruct() {
                 Answer = true,
                 Message = new Dictionary<string, string>() {
@@ -136,29 +168,30 @@ namespace GamePlatformServerApi.Structs {
             };
         }
 
-        public int GetLeftEnters(Context context) {
+        public int GetWrongEnters(Context context) {
             var dayago = 24 * 60;
             var lastenters = (from enter in context.Enters
                               where enter.UserId == Id
                               where enter.EnterTime >= DateTime.Now.AddMinutes(-dayago)
+                              orderby enter.EnterTime descending
                               select enter).ToList();
             var count = 0;
             for (var i = 0; i < lastenters.Count(); i++) {
                 if (!lastenters[i].Success)
                     count++;
                 else {
-                    count = 0;
                     break;
                 }
             }
-            return AppConfigurations.PermanentBanErrors - count;
+            return count;
         }
 
-        public void SetBan(Context context) {
+        public void SetBan(Context context, bool status) {
+            Ban = status;
             var query = (from user in context.Users
                          where user.UserId == Id
                          select user).ToList()[0];
-            query.Ban = true;
+            query.Ban = status;
             context.Users.Update(query);
             context.SaveChanges();
         }
@@ -166,6 +199,34 @@ namespace GamePlatformServerApi.Structs {
         public bool UserExist(Context context) {
             GetUserItem(context);
             return Id != 0 ? true : false;
+        }
+
+        public void SendPermanentBanEmail(Context context) {
+            if (Email == null)
+                Email = new EmailStruct(context, Id);
+            var hours = AppConfigurations.PermanentBanTimeHours;
+            var minutes = AppConfigurations.PermanentBanTimeMinutes;
+            var seconds = AppConfigurations.PermanentBanTimeSeconds;
+            var unlocktime = DateTime.Now.Add(new TimeSpan(hours, minutes, seconds));
+            var body = "Your account was permanently locked. Please, wait " + hours + "h " +
+                        minutes + "m " + seconds + "s and try login again.\n" +
+                        "Your account will be unlocked at " + unlocktime + ".";
+            Mail.Send(Email.Email, body);
+        }
+
+        public void SendConstantBanEmail(Context context) {
+            var query = (from code in context.VerificationCodes
+                         where code.UserId == Id
+                         orderby code.CodeId descending
+                         select code.CodeId).ToList()[0];
+            if (Email == null)
+                Email = new EmailStruct(context, Id);
+            var otp = new Cryptography();
+            otp.SaveToPassword(context, Id);
+            var body = "Your account was locked and your password was reset.\n\n" +
+                        "Your new one-time password: " + otp.Key + "\n\n" +
+                        "Use it to enter the system again.";
+            Mail.Send(Email.Email, body);
         }
     }
 }
