@@ -14,6 +14,7 @@ namespace GamePlatformServerApi.Controllers {
     [ApiController]
     public class UserController : ControllerBase {
         private readonly Context context;
+        private List<SessionStruct> Sessions;
 
         public UserController(Context context) {
             this.context = context;
@@ -180,7 +181,7 @@ namespace GamePlatformServerApi.Controllers {
                     user.SetBan(context, true);
                     user.SendPermanentBanEmail(context);
                 }
-                else if(constentersleft <= 0) {
+                else if (constentersleft <= 0) {
                     answer.Message.Add("EntersLeft", constentersleft.ToString());
                     answer.Message["Message"] = answer.Message["Message"] + " Password was reset.";
                     user.SetBan(context, true);
@@ -190,17 +191,53 @@ namespace GamePlatformServerApi.Controllers {
             if (!answer.Answer && answer.Message["Invalid"].Equals("Locked")) {
                 user.SendPermanentBanEmail(context);
             }
+            if (answer.Answer) {
+                var session = new SessionStruct() {
+                    User = user,
+                };
+                session.SessionNo = session.GetSession(Sessions);
+                if (session.SessionNo != 0) {
+                    Sessions.Remove(session);
+                }
+                session.SessionNo = session.GenSessionNo();
+                Sessions.Add(session);
+                answer.Message.Add("SessionNo", session.SessionNo.ToString());
+            }
             return answer;
         }
 
         //--------------------------------------------------
-        // ... Set new password (only if user is not locked)
+        // ... Set new password(only if user is not locked)
         //--------------------------------------------------
         //POST /api/user/password/change/[session],[new password]
         [Route("password/change")]
         [HttpPost]
         public ActionResult<VerificationStruct> ChangePassword(int session, string newpassword) {
-            throw new NotImplementedException();
+            var sessionstruct = new SessionStruct() {
+                SessionNo = session
+            };
+            sessionstruct.User = sessionstruct.GetUser(Sessions);
+            if (sessionstruct.User.Id != 0) {
+                var password = new PasswordStruct() {
+                    UserId = sessionstruct.User.Id
+                };
+                password.GetLastPasswordNotTemporary(context);
+                if (password.Password == Cryptography.Encrypt(newpassword))
+                    return new VerificationStruct() {
+                        Answer = false,
+                        Message = new Dictionary<string, string>() {
+                            ["Message"] = "New password should not be equal to previous."
+                        }
+                    };
+                password.Password = newpassword;
+                password.Save(context);
+            }
+            return new VerificationStruct() {
+                Answer = true,
+                Message = new Dictionary<string, string>() {
+                    ["Message"] = "Password was successfully changed."
+                }
+            };
         }
     }
 }

@@ -7,7 +7,7 @@ using System.Security.Cryptography;
 
 namespace GamePlatformServerApi.Structs {
     public class UserStruct {
-        private long Id;
+        public long Id;
         public string Login;
         public PasswordStruct Password;
         public EmailStruct Email;
@@ -29,11 +29,16 @@ namespace GamePlatformServerApi.Structs {
         }
 
         private void GetUserItem(Context context) {
-            var item = (from user in context.Users
-                        where user.Login == Login
-                        select user).ToList()[0];
-            Id = item.UserId;
-            Ban = item.Ban;
+            var items = (from user in context.Users
+                         where user.Login == Login
+                         select user).ToList();
+            if (items.Count == 0) {
+                Id = 0;
+            }
+            else {
+                Id = items[0].UserId;
+                Ban = items[0].Ban;
+            }
         }
 
         public void Register(Context context) {
@@ -97,7 +102,10 @@ namespace GamePlatformServerApi.Structs {
                 };
             }
             else {
-                var answer = VerifyPassword(context);
+                var answer = VerifyEmail(context);
+                if (!answer.Answer)
+                    return answer;
+                answer = VerifyPassword(context);
                 if (Id != 0) {
                     var enter = new EnterStruct() {
                         UserId = Id,
@@ -107,6 +115,26 @@ namespace GamePlatformServerApi.Structs {
                     enter.Save(context);
                 }
                 return answer;
+            }
+        }
+
+        private VerificationStruct VerifyEmail(Context context) {
+            var queue = (from email in context.Emails
+                         where email.UserId == Id
+                         select email.Verified).ToList()[0];
+            if (queue) {
+                return new VerificationStruct() {
+                    Answer = queue
+                };
+            }
+            else {
+                return new VerificationStruct() {
+                    Answer = queue,
+                    Message = new Dictionary<string, string>() {
+                        ["Invalid"] = "Email",
+                        ["Message"] = "User are not registered."
+                    }
+                };
             }
         }
 
@@ -121,9 +149,9 @@ namespace GamePlatformServerApi.Structs {
                 var seconds = AppConfigurations.PermanentBanTimeSeconds;
                 var time = DateTime.Now - lastenter > new TimeSpan(hours, minutes, seconds);
                 var temporarypass = (from password in context.Passwords
-                                    where password.UserId == Id
-                                    orderby password.Time descending
-                                    select password.Temporary).ToList()[0];
+                                     where password.UserId == Id
+                                     orderby password.Time descending
+                                     select password.Temporary).ToList()[0];
                 if (time && !temporarypass) {
                     SetBan(context, false);
                 }
@@ -222,7 +250,12 @@ namespace GamePlatformServerApi.Structs {
             if (Email == null)
                 Email = new EmailStruct(context, Id);
             var otp = new Cryptography();
-            otp.SaveToPassword(context, Id);
+            var password = new PasswordStruct() {
+                UserId = Id,
+                Password = otp.Key,
+                Temporary = true,
+            };
+            password.Save(context);
             var body = "Your account was locked and your password was reset.\n\n" +
                         "Your new one-time password: " + otp.Key + "\n\n" +
                         "Use it to enter the system again.";
